@@ -27,7 +27,16 @@ mkdir -p "$DEST/src"
 # enable Developer Mode, then use mklink /D instead.
 ln -sfn "$NAM_CORE/NAM"          "$DEST/src/NAM"
 ln -sfn "$NAM_CORE/Dependencies" "$DEST/src/Dependencies"
-ln -sfn "$NAMB/namb"             "$DEST/src/namb"
+
+# namb: symlink headers but patch get_dsp_namb.cpp.
+# The submodule version includes <NAM/wavenet.h> which no longer exists
+# (wavenet was moved to NAM/wavenet/model.h in a NeuralAmpModelerCore update).
+mkdir -p "$DEST/src/namb"
+ln -sfn "$NAMB/namb/binary_parser_registry.h" "$DEST/src/namb/binary_parser_registry.h"
+ln -sfn "$NAMB/namb/get_dsp_namb.h"           "$DEST/src/namb/get_dsp_namb.h"
+ln -sfn "$NAMB/namb/namb_format.h"            "$DEST/src/namb/namb_format.h"
+sed 's|<NAM/wavenet\.h>|<NAM/wavenet/model.h>|' \
+    "$NAMB/namb/get_dsp_namb.cpp" > "$DEST/src/namb/get_dsp_namb.cpp"
 
 # library.properties
 cat > "$DEST/library.properties" <<EOF

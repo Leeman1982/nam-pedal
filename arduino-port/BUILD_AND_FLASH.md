@@ -173,12 +173,28 @@ At the end you should see: **"Compilation complete."** at the bottom of the scre
    *(Windows: right-click the card in Explorer → Format → FAT32 → Start)*  
    *(Mac: Disk Utility → select card → Erase → MS-DOS FAT)*
 
-2. Get NAM model files. You need `.namb` binary format files.  
-   Download `.nam` files from sites like **ToneHunt** or **Tone3000**,  
-   then convert them (see below). Only **nano** or **feather** size models  
-   will run fast enough on this hardware.
+2. **Factory presets are already included!** The repo contains 10 ENGL Powerball II captures
+   ready to copy straight to your SD card — no conversion needed:
 
-3. **Converting `.nam` → `.namb`** (do this once per model):
+   | File | What it sounds like |
+   |------|-------------------|
+   | `engl_pb2_clean.namb` | Clean channel |
+   | `engl_pb2_crunch.namb` | Crunch channel |
+   | `engl_pb2_crunch_boost.namb` | Crunch + boost |
+   | `engl_pb2_hg_rhythm.namb` | High-gain rhythm |
+   | `engl_pb2_hg_rhy_boost.namb` | High-gain rhythm + boost |
+   | `engl_pb2_hg_lead.namb` | High-gain lead |
+   | `engl_pb2_muff1.namb` | Clean + EHX Big Muff (setting 1) |
+   | `engl_pb2_muff2.namb` | Clean + EHX Big Muff (setting 2) |
+   | `engl_pb2_rat_dist.namb` | Clean + ProCo RAT2 (distortion) |
+   | `engl_pb2_rat_doom.namb` | Clean + ProCo RAT2 (doom) |
+
+   These files are in the `arduino-port/presets/` folder in the repo.
+
+3. Get more NAM model files (optional). Download `.nam` files from sites like **ToneHunt** or **Tone3000**,
+   then convert them. Only **nano** or **feather** size models will run fast enough on this hardware.
+
+   **Converting `.nam` → `.namb`** (do this once per model):
    ```bash
    # From inside the project folder:
    cd nam-binary-loader
