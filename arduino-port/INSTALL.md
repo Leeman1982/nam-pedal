@@ -34,12 +34,13 @@
 
 | Library | Author | Version |
 |---------|--------|---------|
-| **audio-tools** | Phil Schatzmann | ≥ 0.9.8 |
 | **U8g2** | Oliver Kraus | ≥ 2.34 |
-| **SD** | Arduino | built-in |
+| **SD** | Arduino | ≥ 1.3 |
 
-> If `audio-tools` does not appear, add the GitHub URL in Library Manager:
-> `https://github.com/pschatzmann/arduino-audio-tools`
+> I2S output to the PCM5102A is implemented directly with the STM32 HAL in
+> `audio.cpp`.  (The arduino-audio-tools STM32 backend supports neither the
+> F405 nor the SPI2/I2S2 pin mapping this project uses, so it is not a
+> dependency.)
 
 ---
 
@@ -59,38 +60,40 @@ cd arduino-port
 ./setup_arduino_libs.sh
 ```
 
-This creates `~/Arduino/libraries/NAMCore/` with symlinks into the  
-`NeuralAmpModelerCore` and `nam-binary-loader` submodule directories.
+This script:
+- **Copies** the NAM engine, Eigen, json.hpp and the namb loader into
+  `~/Arduino/libraries/NAMCore/` (Arduino does not follow symlinks), with
+  small patches for bare-metal ARM (no `std::mutex`, no slimmable models).
+- Writes `platform.local.txt` into the installed STM32 board package to
+  enable C++ exceptions (`-fexceptions`), which the NAM engine requires.
+  STM32duino's `platform.txt` hard-codes `-fno-exceptions` *after* the
+  `build_opt.h` flags, so `build_opt.h` alone cannot enable them.
 
-**Windows users:** Run the script in WSL, or manually create junctions with  
-`mklink /J` pointing to the same targets.
+**Re-run this script** after updating the submodules or the STM32 board
+package.
+
+**Windows users:** Run the script in Git Bash or WSL.
 
 ---
 
-## Step 5 — Arduino IDE compiler flags
+## Step 5 — Compiler flags (automatic)
 
-The NAM engine and Eigen BLAS kernel need a few extra flags.  
-Create (or edit) `~/.arduino15/preferences.txt` and add:
+Performance flags are applied automatically:
+- `arduino-port/NAMPedalSTM32/build_opt.h` (picked up by STM32duino):
+  `-DNAM_SAMPLE_FLOAT -DNAM_USE_INLINE_GEMM -O3 -ffast-math
+  -funroll-loops -ftree-vectorize`
+- `platform.local.txt` (written by Step 4): `-fexceptions`
 
-```
-compiler.cpp.extra_flags=-O3 -ffast-math -funroll-loops -ftree-vectorize -fexceptions -DNAM_SAMPLE_FLOAT -DNAM_USE_INLINE_GEMM
-```
-
-Alternatively in Arduino IDE 2.x: *Sketch → Edit Sketch* then add a  
-`sketch.yaml` (IDE 2.2+):
-
-```yaml
-profiles:
-  default:
-    fqbn: STMicroelectronics:stm32:GenF4:pnum=GENERIC_F405RGTX,opt=o3std,xserial=generic,usb=none,xusb=FS,upload_method=swdMethod
-```
+No manual `preferences.txt` editing is needed.
 
 ---
 
 ## Step 6 — Prepare SD card models
 
 1. Format a micro SD card as **FAT32**.
-2. Convert NAM `.nam` files to `.namb`:
+2. Copy the factory presets from `arduino-port/presets/` (10 ENGL Powerball II
+   A2-nano captures, ready to use) to the **root** of the SD card.
+3. Optionally convert more NAM `.nam` files to `.namb`:
    ```bash
    cd nam-binary-loader
    mkdir build && cd build
@@ -98,8 +101,8 @@ profiles:
    make
    ./nam2namb /path/to/model.nam model.namb
    ```
-3. Copy `*.namb` files to the **root** of the SD card.  
-   Only **nano** and some **feather** architectures meet the 1 ms deadline.
+   Only **nano**-sized architectures (e.g. A2 nano, channels=3) meet the
+   1 ms inference deadline on the F405.
 
 ---
 
@@ -190,4 +193,4 @@ and restored on next power-on.
 | OLED blank | Wrong I2C address or SDA/SCL swapped | Run I2C scanner sketch |
 | Crackle / artifacts | ADC input not biased to 1.65 V | Check voltage divider |
 | Compile error re Eigen | NAMCore library not set up | Re-run `setup_arduino_libs.sh` |
-| `audio-tools` I2S no output | PLLI2S not configured for HSE≠8 MHz | Adjust PLLI2SN/R in `NAMPedalSTM32.ino` |
+| I2S no output / wrong pitch | PLLI2S assumes HSE = 8 MHz, PLLM = 8 | Adjust PLLI2SN/R in `audio.cpp` (`audio_i2s_init`) |

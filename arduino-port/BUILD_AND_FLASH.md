@@ -68,16 +68,17 @@ This is the tool that actually puts the code onto the chip.
 
 ---
 
-## Step 4 — Install the three required libraries
+## Step 4 — Install the two required libraries
 
 Back in Arduino IDE:
 
 1. Click **Sketch → Include Library → Manage Libraries**
-2. Search for **`audio-tools`** → find the one by **Phil Schatzmann** → click **Install**  
-   *(If it asks to install dependencies, click "Install All")*
-3. Search for **`U8g2`** → find the one by **Oliver Kraus** → click **Install**
-4. Search for **`SD`** → find **"SD" by Arduino** → click **Install** (may already be installed)
-5. Close the Library Manager
+2. Search for **`U8g2`** → find the one by **Oliver Kraus** → click **Install**
+3. Search for **`SD`** → find **"SD" by Arduino** → click **Install** (may already be installed)
+4. Close the Library Manager
+
+> The audio output (I2S to the PCM5102A) is built into the project itself —
+> no audio library needed.
 
 ---
 
@@ -116,8 +117,15 @@ bash setup_arduino_libs.sh
 
 You should see: `NAMCore library created at: .../Arduino/libraries/NAMCore`
 
+The script also writes a one-line `platform.local.txt` into the STM32 board
+package to enable C++ exceptions (the NAM engine needs them).
+
 > If you get a "permission denied" error on Mac/Linux:
 > `chmod +x arduino-port/setup_arduino_libs.sh` then try again.
+>
+> **Important:** if you later update or reinstall the STM32 board package
+> (Step 2), run this script again — the exceptions setting lives inside the
+> board package folder and is wiped by updates.
 
 ---
 
@@ -160,9 +168,10 @@ At the end you should see: **"Compilation complete."** at the bottom of the scre
 
 | Error message contains | Fix |
 |------------------------|-----|
-| `No such file: NAM/dsp.h` | Re-run `setup_arduino_libs.sh` (Step 6) |
-| `No such file: AudioTools.h` | Install `audio-tools` library (Step 4) |
+| `No such file: NAMCore.h` or `NAM/dsp.h` | Re-run `setup_arduino_libs.sh` (Step 6) |
 | `No such file: U8g2lib.h` | Install `U8g2` library (Step 4) |
+| `No such file: SD.h` | Install `SD` library (Step 4) |
+| `exception handling disabled` | Re-run `setup_arduino_libs.sh` (Step 6) — you probably updated the STM32 board package since running it |
 | Any other red error | Post the full error text to the project GitHub issues |
 
 ---

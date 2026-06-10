@@ -2,11 +2,10 @@
 //
 // Audio pipeline:
 //   Guitar → ADC1/PA1 (TIM3-triggered DMA, 48 kHz) → NAM inference
-//          → Arduino Audio Tools I2SStream → PCM5102A DAC → amp/headphones
+//          → I2S2 DMA double-buffer (audio.cpp) → PCM5102A DAC → amp/headphones
 //
 // Libraries required (install via Arduino Library Manager):
 //   • STM32duino core  (Board Manager URL in INSTALL.md)
-//   • "audio-tools"    by Phil Schatzmann
 //   • "U8g2"           by Oliver Kraus
 //   • "SD"             (built-in Arduino)
 //
@@ -14,8 +13,6 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <AudioTools.h>             // Arduino Audio Tools by pschatzmann
-#include <AudioLibs/I2SStream.h>    // I2S output
 
 #include "config.h"
 #include "audio.h"
@@ -23,9 +20,7 @@
 #include "ui.h"
 
 // NAM inference engine (installed as NAMCore Arduino library — see INSTALL.md)
-#include <NAM/dsp.h>
-#include <NAM/activations.h>
-#include <namb/get_dsp_namb.h>
+#include <NAMCore.h>
 #include <memory>
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
@@ -53,31 +48,6 @@ static NAM_SAMPLE nam_out[AUDIO_BLOCK_FRAMES];
 
 // I2S stereo output buffer (48 frames × 2 channels × 2 bytes)
 static int16_t i2s_write_buf[AUDIO_BLOCK_FRAMES * 2];
-
-// ─── Arduino Audio Tools — I2S output ────────────────────────────────────────
-
-static I2SStream i2s_out;
-
-static void i2s_init_audio_tools(void)
-{
-    // Configure PLLI2S for exact 48 kHz BEFORE Audio Tools init.
-    // PLLI2SN=192, PLLI2SR=5 → I2SCLK = 38.4 MHz (assuming HSE=8MHz, PLLM=8)
-    // HAL_I2S_Init() will pick DIV=12, ODD=1 → BCK = 1.536 MHz → fs = 48 000 Hz
-    RCC_PeriphCLKInitTypeDef pclk = {};
-    pclk.PeriphClockSelection = RCC_PERIPHCLK_I2S;
-    pclk.PLLI2S.PLLI2SN       = 192;
-    pclk.PLLI2S.PLLI2SR       = 5;
-    HAL_RCCEx_PeriphCLKConfig(&pclk);
-
-    auto cfg             = i2s_out.defaultConfig(TX_MODE);
-    cfg.sample_rate      = AUDIO_SAMPLE_RATE;
-    cfg.bits_per_sample  = 16;
-    cfg.channels         = 2;
-    cfg.pin_bck          = I2S_PIN_BCK;   // PB13
-    cfg.pin_ws           = I2S_PIN_WS;    // PB12
-    cfg.pin_data_out     = I2S_PIN_DATA;  // PB15
-    i2s_out.begin(cfg);
-}
 
 // ─── LED helper ───────────────────────────────────────────────────────────────
 
@@ -192,8 +162,9 @@ void setup(void)
     audio_adc_init();
     audio_adc_start();
 
-    // Start I2S output via Arduino Audio Tools
-    i2s_init_audio_tools();
+    // Start I2S output (PLLI2S + I2S2 + circular DMA — see audio.cpp)
+    audio_i2s_init();
+    audio_i2s_start();
 
     g_effect_active = (g_model != nullptr);
     led_set(g_effect_active);
@@ -249,8 +220,8 @@ void loop(void)
             i2s_write_buf[i * 2 + 1] = pcm;  // R
         }
 
-        // Write to PCM5102A via I2SStream (blocks until FIFO accepts data)
-        i2s_out.write((uint8_t*)i2s_write_buf, sizeof(i2s_write_buf));
+        // Write to PCM5102A (blocks until a DMA half-buffer is free, ≤1 ms)
+        audio_i2s_write(i2s_write_buf, AUDIO_BLOCK_FRAMES);
     }
 
     // ── 3. UI (throttled to kUiPeriodMs) ─────────────────────────────────────
