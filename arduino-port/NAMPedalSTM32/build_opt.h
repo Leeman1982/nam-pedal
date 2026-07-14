@@ -1,0 +1,7 @@
+-DNAM_SAMPLE_FLOAT
+-DNAM_USE_INLINE_GEMM
+-O3
+-ffast-math
+-funroll-loops
+-ftree-vectorize
+-fexceptions
